@@ -1,7 +1,6 @@
 
 import jack
 import numpy as np
-from threading import Thread
 
 
 class JackClient():
@@ -15,7 +14,8 @@ class JackClient():
         self._create_client()
 
     def _process(self, frames):
-        self.output_queue.put_nowait(np.array([np.array(port.get_array()[:], np.float32) for port in self.client.inports], np.float32)) # [channels, samples]
+        pipe_dict = {'samples': np.array([np.array(port.get_array()[:], np.float32) for port in self.client.inports], np.float32)}  # [channels, samples]
+        self.output_queue.put_nowait(pipe_dict)
 
     def _create_client(self):
         self.client = jack.Client(self.name)
@@ -31,21 +31,3 @@ class JackClient():
 
     def close(self):
         self.client.close()
-
-
-class Accumulator(Thread):
-    __keepThread = True
-
-    def __init__(self, input_queue, output_queue, num_samples):
-        Thread.__init__(self)
-        self.input_queue = input_queue
-        self.output_queue = output_queue
-        self.num_samples = num_samples
-
-    def run(self):
-        while self.__keepThread:
-            buf = self.input_queue.get()
-            while buf.shape[1] < self.num_samples:
-                buf = np.concatenate([buf, self.input_queue.get()], axis=1)
-
-            self.output_queue.put(buf)
